@@ -1,6 +1,7 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 use lockfree::channel::spsc;
 use nolock::queues::spsc::unbounded;
+use rtrb::RingBuffer;
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Instant;
@@ -97,6 +98,47 @@ fn bench_lockfree(num_inserts: i32) -> usize {
     dur.as_millis() as usize
 }
 
+fn bench_rtrb(num_inserts: i32) -> usize {
+    let (mut tx, mut rx) = RingBuffer::new(num_inserts as usize);
+    let start_gate = Arc::new(Barrier::new(3));
+    let end_gate = Arc::new(Barrier::new(3));
+
+    let t1_start = start_gate.clone();
+    let t1_end = end_gate.clone();
+    let t1 = thread::spawn(move || {
+        t1_start.wait();
+        for i in 0..num_inserts {
+            match tx.push(i) {
+                Err(e) => println!("{:?}", e), // should not err here
+                Ok(_) => (),
+            }
+        }
+        drop(tx);
+        t1_end.wait();
+    });
+
+    let t2_start = start_gate.clone();
+    let t2_end = end_gate.clone();
+    let t2 = thread::spawn(move || {
+        t2_start.wait();
+        let mut _sum = 0;
+        while let Ok(val) = rx.pop() {
+            _sum += val;
+        }
+        t2_end.wait();
+    });
+
+    start_gate.wait();
+    let start = Instant::now();
+    end_gate.wait();
+    let dur = start.elapsed();
+
+    t1.join().unwrap();
+    t2.join().unwrap();
+
+    dur.as_millis() as usize
+}
+
 fn repeat(ntimes: i32, procedure: BenchProcedure) -> usize {
     // use worker threads to do repeated benchmark runs
     let concurrent_test_thread_count = 5;
@@ -132,7 +174,9 @@ fn main() {
 
     let nolock_bench = make_bench!(bench_nolock, NUM_INSERTS);
     let lockfree_bench = make_bench!(bench_lockfree, NUM_INSERTS);
+    let rtrb_bench = make_bench!(bench_rtrb, NUM_INSERTS);
 
     bench("nolock", nolock_bench, NUM_TRIALS);
     bench("lockfree", lockfree_bench, NUM_TRIALS);
+    bench("rtrb", rtrb_bench, NUM_TRIALS);
 }
