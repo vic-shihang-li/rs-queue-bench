@@ -1,7 +1,9 @@
+use core::sync::atomic::{AtomicUsize, Ordering};
 use nolock::queues::spsc::unbounded;
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Instant;
+use threadpool::ThreadPool;
 
 fn nolock_benchmark() -> u128 {
     let num_inserts = 100_000;
@@ -15,7 +17,10 @@ fn nolock_benchmark() -> u128 {
     let t1 = thread::spawn(move || {
         t1_start.wait();
         for i in 0..num_inserts {
-            tx.enqueue(i).unwrap();
+            match tx.enqueue(i) {
+                Err(e) => println!("{:?}", e), // should not err here
+                Ok(_) => (),
+            }
         }
         drop(tx);
         t1_end.wait();
@@ -43,12 +48,21 @@ fn nolock_benchmark() -> u128 {
     dur.as_millis()
 }
 
-fn repeat(ntimes: i32, procedure: fn() -> u128) -> u128 {
-    let mut sum = 0;
+fn repeat(ntimes: i32, procedure: fn() -> u128) -> usize {
+    // use worker threads to do repeated benchmark runs
+    let concurrent_test_thread_count = 5;
+    let pool = ThreadPool::new(concurrent_test_thread_count);
+
+    let sum = Arc::new(AtomicUsize::new(0));
     for _ in 0..ntimes {
-        sum += procedure();
+        let sum_clone = sum.clone();
+        pool.execute(move || {
+            sum_clone.fetch_add(procedure() as usize, Ordering::SeqCst);
+        });
     }
-    sum
+    pool.join();
+
+    sum.load(Ordering::SeqCst)
 }
 
 fn bench(name: &'static str, benchmark: fn() -> u128, num_trials: i32) {
