@@ -5,9 +5,16 @@ use std::thread;
 use std::time::Instant;
 use threadpool::ThreadPool;
 
-fn nolock_benchmark() -> u128 {
-    let num_inserts = 100_000;
+type BenchProcedure = fn() -> usize;
 
+/// Define the number of inserts to perform on.
+macro_rules! make_bench {
+    ($bench_fn: ident, $num_inserts:expr) => {
+        || $bench_fn($num_inserts)
+    };
+}
+
+fn bench_nolock(num_inserts: i32) -> usize {
     let (mut rx, mut tx) = unbounded::queue::<i32>();
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
@@ -45,10 +52,10 @@ fn nolock_benchmark() -> u128 {
     t1.join().unwrap();
     t2.join().unwrap();
 
-    dur.as_millis()
+    dur.as_millis() as usize
 }
 
-fn repeat(ntimes: i32, procedure: fn() -> u128) -> usize {
+fn repeat(ntimes: i32, procedure: BenchProcedure) -> usize {
     // use worker threads to do repeated benchmark runs
     let concurrent_test_thread_count = 5;
     let pool = ThreadPool::new(concurrent_test_thread_count);
@@ -57,7 +64,7 @@ fn repeat(ntimes: i32, procedure: fn() -> u128) -> usize {
     for _ in 0..ntimes {
         let sum_clone = sum.clone();
         pool.execute(move || {
-            sum_clone.fetch_add(procedure() as usize, Ordering::SeqCst);
+            sum_clone.fetch_add(procedure(), Ordering::SeqCst);
         });
     }
     pool.join();
@@ -65,7 +72,7 @@ fn repeat(ntimes: i32, procedure: fn() -> u128) -> usize {
     sum.load(Ordering::SeqCst)
 }
 
-fn bench(name: &'static str, benchmark: fn() -> u128, num_trials: i32) {
+fn bench(name: &'static str, benchmark: BenchProcedure, num_trials: i32) {
     let sum = repeat(num_trials, benchmark);
     let avg: f64 = (sum as f64) / (num_trials as f64);
 
@@ -78,6 +85,10 @@ fn bench(name: &'static str, benchmark: fn() -> u128, num_trials: i32) {
 }
 
 fn main() {
-    let num_trials = 1_000;
-    bench("nolock", nolock_benchmark, num_trials);
+    const NUM_TRIALS: i32 = 1_000;
+    const NUM_INSERTS: i32 = 100_000;
+
+    let nolock_bench = make_bench!(bench_nolock, NUM_INSERTS);
+
+    bench("nolock", nolock_bench, NUM_TRIALS);
 }
