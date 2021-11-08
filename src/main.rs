@@ -16,90 +16,73 @@ macro_rules! make_bench {
     };
 }
 
-fn bench_nolock(num_inserts: i32) -> usize {
+fn bench_crate_nolock(num_inserts: i32) -> usize {
     let (mut rx, mut tx) = unbounded::queue::<i32>();
-    let start_gate = Arc::new(Barrier::new(3));
-    let end_gate = Arc::new(Barrier::new(3));
 
-    let t1_start = start_gate.clone();
-    let t1_end = end_gate.clone();
-    let t1 = thread::spawn(move || {
-        t1_start.wait();
-        for i in 0..num_inserts {
-            match tx.enqueue(i) {
-                Err(e) => println!("{:?}", e), // should not err here
-                Ok(_) => (),
+    bench_spsc(
+        move || {
+            for i in 0..num_inserts {
+                match tx.enqueue(i) {
+                    Err(e) => println!("{:?}", e),
+                    Ok(_) => (),
+                };
             }
-        }
-        drop(tx);
-        t1_end.wait();
-    });
-
-    let t2_start = start_gate.clone();
-    let t2_end = end_gate.clone();
-    let t2 = thread::spawn(move || {
-        t2_start.wait();
-        let mut _sum = 0;
-        while let Ok(val) = rx.try_dequeue() {
-            _sum += val;
-        }
-        t2_end.wait();
-    });
-
-    start_gate.wait();
-    let start = Instant::now();
-    end_gate.wait();
-    let dur = start.elapsed();
-
-    t1.join().unwrap();
-    t2.join().unwrap();
-
-    dur.as_millis() as usize
+        },
+        move || {
+            let mut _sum = 0;
+            while let Ok(val) = rx.try_dequeue() {
+                _sum += val;
+            }
+        },
+    )
 }
 
-fn bench_lockfree(num_inserts: i32) -> usize {
+fn bench_crate_lockfree(num_inserts: i32) -> usize {
     let (mut tx, mut rx) = spsc::create::<i32>();
-    let start_gate = Arc::new(Barrier::new(3));
-    let end_gate = Arc::new(Barrier::new(3));
 
-    let t1_start = start_gate.clone();
-    let t1_end = end_gate.clone();
-    let t1 = thread::spawn(move || {
-        t1_start.wait();
-        for i in 0..num_inserts {
-            match tx.send(i) {
-                Err(e) => println!("{:?}", e), // should not err here
-                Ok(_) => (),
+    bench_spsc(
+        move || {
+            for i in 0..num_inserts {
+                match tx.send(i) {
+                    Err(e) => println!("{:?}", e),
+                    Ok(_) => (),
+                };
             }
-        }
-        drop(tx);
-        t1_end.wait();
-    });
-
-    let t2_start = start_gate.clone();
-    let t2_end = end_gate.clone();
-    let t2 = thread::spawn(move || {
-        t2_start.wait();
-        let mut _sum = 0;
-        while let Ok(val) = rx.recv() {
-            _sum += val;
-        }
-        t2_end.wait();
-    });
-
-    start_gate.wait();
-    let start = Instant::now();
-    end_gate.wait();
-    let dur = start.elapsed();
-
-    t1.join().unwrap();
-    t2.join().unwrap();
-
-    dur.as_millis() as usize
+        },
+        move || {
+            let mut _sum = 0;
+            while let Ok(val) = rx.recv() {
+                _sum += val;
+            }
+        },
+    )
 }
 
-fn bench_rtrb(num_inserts: i32) -> usize {
+fn bench_crate_rtrb(num_inserts: i32) -> usize {
     let (mut tx, mut rx) = RingBuffer::new(num_inserts as usize);
+
+    bench_spsc(
+        move || {
+            for i in 0..num_inserts {
+                match tx.push(i) {
+                    Err(e) => println!("{:?}", e),
+                    Ok(_) => (),
+                };
+            }
+        },
+        move || {
+            let mut _sum = 0;
+            while let Ok(val) = rx.pop() {
+                _sum += val;
+            }
+        },
+    )
+}
+
+fn bench_spsc(
+    mut producer: impl FnMut() + Send + 'static,
+    mut consumer: impl FnMut() + Send + 'static,
+) -> usize {
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
 
@@ -107,13 +90,7 @@ fn bench_rtrb(num_inserts: i32) -> usize {
     let t1_end = end_gate.clone();
     let t1 = thread::spawn(move || {
         t1_start.wait();
-        for i in 0..num_inserts {
-            match tx.push(i) {
-                Err(e) => println!("{:?}", e), // should not err here
-                Ok(_) => (),
-            }
-        }
-        drop(tx);
+        producer();
         t1_end.wait();
     });
 
@@ -121,10 +98,7 @@ fn bench_rtrb(num_inserts: i32) -> usize {
     let t2_end = end_gate.clone();
     let t2 = thread::spawn(move || {
         t2_start.wait();
-        let mut _sum = 0;
-        while let Ok(val) = rx.pop() {
-            _sum += val;
-        }
+        consumer();
         t2_end.wait();
     });
 
@@ -172,9 +146,9 @@ fn main() {
     const NUM_TRIALS: i32 = 1_000;
     const NUM_INSERTS: i32 = 100_000;
 
-    let nolock_bench = make_bench!(bench_nolock, NUM_INSERTS);
-    let lockfree_bench = make_bench!(bench_lockfree, NUM_INSERTS);
-    let rtrb_bench = make_bench!(bench_rtrb, NUM_INSERTS);
+    let nolock_bench = make_bench!(bench_crate_nolock, NUM_INSERTS);
+    let lockfree_bench = make_bench!(bench_crate_lockfree, NUM_INSERTS);
+    let rtrb_bench = make_bench!(bench_crate_rtrb, NUM_INSERTS);
 
     bench("nolock", nolock_bench, NUM_TRIALS);
     bench("lockfree", lockfree_bench, NUM_TRIALS);
