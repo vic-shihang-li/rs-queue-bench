@@ -40,6 +40,7 @@ fn bench_std_mpsc(num_inserts: usize) -> usize {
                     break;
                 }
             }
+            assert_eq!(sum, num_inserts);
         },
     )
 }
@@ -68,6 +69,7 @@ fn bench_crate_nolock(num_inserts: usize) -> usize {
                     break;
                 }
             }
+            assert_eq!(ctr, num_inserts);
         },
     )
 }
@@ -96,6 +98,7 @@ fn bench_crate_lockfree(num_inserts: usize) -> usize {
                     break;
                 }
             }
+            assert_eq!(recv_ctr, num_inserts);
         },
     )
 }
@@ -124,6 +127,7 @@ fn bench_crate_rtrb(num_inserts: usize) -> usize {
                     break;
                 }
             }
+            assert_eq!(recv_ctr, num_inserts);
         },
     )
 }
