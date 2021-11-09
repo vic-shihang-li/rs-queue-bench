@@ -16,7 +16,7 @@ macro_rules! make_bench {
     };
 }
 
-fn bench_std_mpsc(num_inserts: i32) -> usize {
+fn bench_std_mpsc(num_inserts: usize) -> usize {
     let (tx, rx) = std::sync::mpsc::channel::<usize>();
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
@@ -43,6 +43,7 @@ fn bench_std_mpsc(num_inserts: i32) -> usize {
         while let Ok(val) = rx.recv() {
             _sum += val;
         }
+        assert_eq!(_sum, num_inserts);
         t2_end.wait();
     });
 
@@ -57,7 +58,7 @@ fn bench_std_mpsc(num_inserts: i32) -> usize {
     dur.as_millis() as usize
 }
 
-fn bench_nolock(num_inserts: i32) -> usize {
+fn bench_nolock(num_inserts: usize) -> usize {
     let (mut rx, mut tx) = unbounded::queue::<usize>();
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
@@ -84,6 +85,7 @@ fn bench_nolock(num_inserts: i32) -> usize {
         while let Ok(val) = rx.try_dequeue() {
             _sum += val;
         }
+        assert_eq!(_sum, num_inserts);
         t2_end.wait();
     });
 
@@ -98,7 +100,7 @@ fn bench_nolock(num_inserts: i32) -> usize {
     dur.as_millis() as usize
 }
 
-fn bench_lockfree(num_inserts: i32) -> usize {
+fn bench_lockfree(num_inserts: usize) -> usize {
     let (mut tx, mut rx) = spsc::create::<usize>();
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
@@ -125,6 +127,7 @@ fn bench_lockfree(num_inserts: i32) -> usize {
         while let Ok(val) = rx.recv() {
             _sum += val;
         }
+        assert_eq!(_sum, num_inserts);
         t2_end.wait();
     });
 
@@ -139,7 +142,7 @@ fn bench_lockfree(num_inserts: i32) -> usize {
     dur.as_millis() as usize
 }
 
-fn bench_rtrb(num_inserts: i32) -> usize {
+fn bench_rtrb(num_inserts: usize) -> usize {
     let (mut tx, mut rx) = RingBuffer::new((num_inserts / 3) as usize);
     let start_gate = Arc::new(Barrier::new(3));
     let end_gate = Arc::new(Barrier::new(3));
@@ -179,7 +182,7 @@ fn bench_rtrb(num_inserts: i32) -> usize {
                 break;
             }
         }
-
+        assert_eq!(_sum, num_inserts);
         t2_end.wait();
         // println!("{}", _sum);
     });
@@ -226,7 +229,7 @@ fn bench(name: &'static str, benchmark: BenchProcedure, num_trials: i32) {
 
 fn main() {
     const NUM_TRIALS: i32 = 1_000;
-    const NUM_INSERTS: i32 = 100_000;
+    const NUM_INSERTS: usize = 100_000;
 
     let std_mpsc_bench = make_bench!(bench_std_mpsc, NUM_INSERTS);
     let nolock_bench = make_bench!(bench_nolock, NUM_INSERTS);
