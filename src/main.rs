@@ -27,6 +27,7 @@ fn bench_std_mpsc(num_inserts: usize) -> usize {
                     Ok(_) => (),
                 };
             }
+            drop(tx)
         },
         move || {
             let mut sum = 0;
@@ -54,6 +55,7 @@ fn bench_crate_nolock(num_inserts: usize) -> usize {
                     Ok(_) => (),
                 };
             }
+            drop(tx)
         },
         move || {
             let mut ctr = 0;
@@ -81,6 +83,7 @@ fn bench_crate_lockfree(num_inserts: usize) -> usize {
                     Ok(_) => (),
                 };
             }
+            drop(tx)
         },
         move || {
             let mut recv_ctr = 0;
@@ -108,6 +111,7 @@ fn bench_crate_rtrb(num_inserts: usize) -> usize {
                     Ok(_) => (),
                 };
             }
+            drop(tx)
         },
         move || {
             let mut recv_ctr = 0;
@@ -197,7 +201,7 @@ fn bench(name: &'static str, benchmark: BenchProcedure, num_trials: i32) {
 
 fn main() {
     const NUM_TRIALS: i32 = 1000;
-    const NUM_INSERTS: usize = 100_000;
+    const NUM_INSERTS: usize = 1_000_000;
 
     let std_mpsc_bench = make_bench!(bench_std_mpsc, NUM_INSERTS);
     let nolock_bench = make_bench!(bench_crate_nolock, NUM_INSERTS);
@@ -205,7 +209,7 @@ fn main() {
     let rtrb_bench = make_bench!(bench_crate_rtrb, NUM_INSERTS);
 
     bench("std::sync::mpsc", std_mpsc_bench, NUM_TRIALS);
-    bench("nolock", nolock_bench, NUM_TRIALS);
+    // bench("nolock", nolock_bench, NUM_TRIALS);
     bench("lockfree", lockfree_bench, NUM_TRIALS);
     bench("rtrb", rtrb_bench, NUM_TRIALS);
 }
