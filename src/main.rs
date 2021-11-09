@@ -67,7 +67,7 @@ fn bench_nolock(num_inserts: usize) -> usize {
     let t1_end = end_gate.clone();
     let t1 = thread::spawn(move || {
         t1_start.wait();
-        for i in 0..num_inserts {
+        for _ in 0..num_inserts {
             match tx.enqueue(1) {
                 Err(e) => println!("{:?}", e), // should not err here
                 Ok(_) => (),
@@ -81,11 +81,17 @@ fn bench_nolock(num_inserts: usize) -> usize {
     let t2_end = end_gate.clone();
     let t2 = thread::spawn(move || {
         t2_start.wait();
-        let mut _sum = 0;
-        while let Ok(val) = rx.try_dequeue() {
-            _sum += val;
+        let mut sum = 0;
+        loop {
+            match rx.try_dequeue() {
+                Err(_) => {}
+                Ok(_) => sum += 1,
+            }
+            if sum == num_inserts {
+                break;
+            }
         }
-        assert_eq!(_sum, num_inserts);
+        assert_eq!(sum, num_inserts);
         t2_end.wait();
     });
 
@@ -109,7 +115,7 @@ fn bench_lockfree(num_inserts: usize) -> usize {
     let t1_end = end_gate.clone();
     let t1 = thread::spawn(move || {
         t1_start.wait();
-        for i in 0..num_inserts {
+        for _ in 0..num_inserts {
             match tx.send(1) {
                 Err(e) => println!("{:?}", e), // should not err here
                 Ok(_) => (),
@@ -123,11 +129,17 @@ fn bench_lockfree(num_inserts: usize) -> usize {
     let t2_end = end_gate.clone();
     let t2 = thread::spawn(move || {
         t2_start.wait();
-        let mut _sum = 0;
-        while let Ok(val) = rx.recv() {
-            _sum += val;
+        let mut sum = 0;
+        loop {
+            match rx.recv() {
+                Err(_) => {}
+                Ok(_) => sum += 1,
+            }
+            if sum == num_inserts {
+                break;
+            }
         }
-        assert_eq!(_sum, num_inserts);
+        assert_eq!(sum, num_inserts);
         t2_end.wait();
     });
 
@@ -151,12 +163,10 @@ fn bench_rtrb(num_inserts: usize) -> usize {
     let t1_end = end_gate.clone();
     let t1 = thread::spawn(move || {
         t1_start.wait();
-        let mut ctr = 0;
         for _ in 0..num_inserts {
             'inner: loop {
                 match tx.push(1) {
                     Ok(_) => {
-                        ctr += 1;
                         break 'inner;
                     }
                     Err(PushError::Full(_)) => (),
@@ -171,20 +181,19 @@ fn bench_rtrb(num_inserts: usize) -> usize {
     let t2_end = end_gate.clone();
     let t2 = thread::spawn(move || {
         t2_start.wait();
-        let mut _sum = 0;
+        let mut sum = 0;
 
         loop {
             match rx.pop() {
                 Err(_) => {}
-                Ok(i) => _sum += i,
+                Ok(_) => sum += 1,
             }
-            if _sum == num_inserts {
+            if sum == num_inserts {
                 break;
             }
         }
-        assert_eq!(_sum, num_inserts);
+        assert_eq!(sum, num_inserts);
         t2_end.wait();
-        // println!("{}", _sum);
     });
 
     start_gate.wait();
