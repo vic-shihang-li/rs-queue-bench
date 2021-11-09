@@ -10,3 +10,7 @@ nolock = "0.3.1"
 lockfree = "0.5.1"
 rtrb = "0.2.0"
 threadpool = "1.8.1"
+
+[[bin]]
+name = "spsc"
+path = "src/bench_spsc.rs"
