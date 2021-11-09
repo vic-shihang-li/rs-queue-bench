@@ -45,6 +45,7 @@ fn bench_std_mpsc(num_inserts: usize) -> usize {
     )
 }
 
+#[allow(dead_code)]
 fn bench_crate_nolock(num_inserts: usize) -> usize {
     let (mut rx, mut tx) = unbounded::queue::<usize>();
 
@@ -208,7 +209,7 @@ fn main() {
     const NUM_INSERTS: usize = 1_000_000;
 
     let std_mpsc_bench = make_bench!(bench_std_mpsc, NUM_INSERTS);
-    let nolock_bench = make_bench!(bench_crate_nolock, NUM_INSERTS);
+    // let nolock_bench = make_bench!(bench_crate_nolock, NUM_INSERTS);
     let lockfree_bench = make_bench!(bench_crate_lockfree, NUM_INSERTS);
     let rtrb_bench = make_bench!(bench_crate_rtrb, NUM_INSERTS);
 
