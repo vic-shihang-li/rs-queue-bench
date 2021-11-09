@@ -25,7 +25,7 @@ fn bench_std_mpsc(num_inserts: usize) -> usize {
     let t1_end = end_gate.clone();
     let t1 = thread::spawn(move || {
         t1_start.wait();
-        for i in 0..num_inserts {
+        for _ in 0..num_inserts {
             match tx.send(1) {
                 Err(e) => println!("{:?}", e), // should not err here
                 Ok(_) => (),
