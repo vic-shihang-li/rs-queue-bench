@@ -174,7 +174,7 @@ fn bench_spsc(
 fn main() {
     use utils::bench;
 
-    const NUM_TRIALS: i32 = 1000;
+    const NUM_TRIALS: u32 = 1000;
     const NUM_INSERTS: usize = 1_000_000;
 
     let std_mpsc_bench = make_bench!(bench_std_mpsc, NUM_INSERTS);
