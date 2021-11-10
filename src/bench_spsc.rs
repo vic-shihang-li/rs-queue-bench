@@ -20,9 +20,8 @@ fn bench_std_mpsc(num_inserts: usize) -> usize {
     bench_spsc(
         move || {
             for _ in 0..num_inserts {
-                match tx.send(1) {
-                    Err(e) => println!("{:?}", e),
-                    Ok(_) => (),
+                if let Err(e) = tx.send(1) {
+                    println!("{:?}", e)
                 };
             }
             drop(tx)
@@ -50,9 +49,8 @@ fn bench_crate_nolock(num_inserts: usize) -> usize {
     bench_spsc(
         move || {
             for i in 0..num_inserts {
-                match tx.enqueue(i) {
-                    Err(e) => println!("{:?}", e),
-                    Ok(_) => (),
+                if let Err(e) = tx.enqueue(i) {
+                    println!("{:?}", e)
                 };
             }
             drop(tx)
@@ -79,9 +77,8 @@ fn bench_crate_lockfree(num_inserts: usize) -> usize {
     bench_spsc(
         move || {
             for _ in 0..num_inserts {
-                match tx.send(1) {
-                    Err(e) => println!("{:?}", e),
-                    Ok(_) => (),
+                if let Err(e) = tx.send(1) {
+                    println!("{:?}", e)
                 };
             }
             drop(tx)
@@ -108,9 +105,8 @@ fn bench_crate_rtrb(num_inserts: usize) -> usize {
     bench_spsc(
         move || {
             for i in 0..num_inserts {
-                match tx.push(i) {
-                    Err(e) => println!("{:?}", e),
-                    Ok(_) => (),
+                if let Err(e) = tx.push(i) {
+                    println!("{:?}", e)
                 };
             }
             drop(tx)
