@@ -10,7 +10,12 @@ nolock = "0.3.1"
 lockfree = "0.5.1"
 rtrb = "0.2.0"
 threadpool = "1.8.1"
+crossbeam-queue = "0.3.2"
 
 [[bin]]
 name = "spsc"
 path = "src/bench_spsc.rs"
+
+[[bin]]
+name = "mpsc"
+path = "src/bench_mpsc.rs"
